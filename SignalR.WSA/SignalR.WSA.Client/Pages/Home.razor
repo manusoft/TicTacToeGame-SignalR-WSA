@@ -1,0 +1,74 @@
+﻿@page "/"
+
+@inject NavigationManager NavigationManager
+@rendermode @(new InteractiveWebAssemblyRenderMode(false))
+
+<h1>Welcome to Blazor Tic-Tac-Toe Game</h1>
+
+@if (currentRoom is null)
+{
+    <input @bind="playerName" placeholder="Your Name" />
+    <input @bind="currentRoomName" placeholder="Room Name" />
+    <button @onclick="CreateRoomAsync">Create Room</button>
+
+    <h3>Rooms:</h3>
+    <ul>
+        @foreach (var room in rooms)
+        {
+            <li>@room.Name <button @onclick="()=>JoinRoomAsync(room.Id)">Join Room</button></li>
+        }
+    </ul>
+}
+else
+{
+    <CascadingValue Value="hubConnection">
+        <Room CurrentRoom="currentRoom" />
+    </CascadingValue>
+}
+
+@code {
+    private HubConnection? hubConnection;
+    private string playerName = string.Empty;
+    private string currentRoomName = string.Empty;
+    private GameRoom? currentRoom;
+    private List<GameRoom> rooms = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+             .WithUrl(NavigationManager.ToAbsoluteUri("/Gamehub"))
+             .Build();
+
+        hubConnection.On<List<GameRoom>>("Rooms", (roomList) =>
+        {
+            Console.WriteLine($"We got rooms! Count = {roomList.Count}");
+            rooms = roomList;
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private async Task CreateRoomAsync()
+    {
+        if (hubConnection is null) return;
+
+        currentRoom = await hubConnection.InvokeAsync<GameRoom>("CreateRoom", currentRoomName, playerName);
+    }
+
+    private async Task JoinRoomAsync(string roomId)
+    {
+        if (hubConnection is null) return;
+
+        var joinedRoom = await hubConnection.InvokeAsync<GameRoom>("JoinRoom", roomId, playerName);
+
+        if (joinedRoom is not null)
+        {
+            currentRoom = joinedRoom;            
+        }
+        else
+        {
+            Console.WriteLine("Room is full or deos not exist!");
+        }
+    }
+}

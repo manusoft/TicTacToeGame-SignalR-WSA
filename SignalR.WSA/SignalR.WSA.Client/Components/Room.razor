@@ -1,0 +1,28 @@
+﻿@if(CurrentRoom is not null)
+{
+    <h3>@CurrentRoom.Name</h3>
+
+    if(CurrentRoom.Players.Count < 2)
+    {
+        <h4>Waiting for another player to join...</h4>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    public HubConnection? HubConnection { get; set; }
+
+    [Parameter]
+    public GameRoom? CurrentRoom { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentRoom is null || HubConnection is null || HubConnection.ConnectionId is null)
+            return;
+
+        HubConnection.On<Player>("PlayerJoined", player =>
+        {
+            CurrentRoom.Players.Add(player);
+        });
+    }
+}
